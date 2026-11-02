@@ -91,19 +91,28 @@ enum Asker {
             "model": apiModel, "max_tokens": apiMaxTokens, "messages": [["role": "user", "content": content]],
         ])
 
+        // timeoutInterval is an idle timeout, not a deadline, so the wait below is what bounds the call.
+        // On timeout the task is cancelled and `result` is never read: the callback may still be writing it.
         let done = DispatchSemaphore(value: 0)
-        var result: Result<Data, Error> = .failure(AppError.process("API call timed out"))
-        URLSession.shared.dataTask(with: request) { data, _, error in
-            result = data.map { .success($0) } ?? .failure(error ?? AppError.process("empty API response"))
+        var result: Result<(Data, Int), Error> = .failure(AppError.process("empty API response"))
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            result = data.map { .success(($0, status)) } ?? .failure(error ?? AppError.process("empty API response"))
             done.signal()
-        }.resume()
-        _ = done.wait(timeout: .now() + timeout)
-
-        guard let json = try JSONSerialization.jsonObject(with: try result.get()) as? [String: Any] else {
-            throw AppError.process("API returned no JSON")
         }
-        if let error = json["error"] as? [String: Any] {
+        task.resume()
+        guard done.wait(timeout: .now() + timeout) == .success else {
+            task.cancel()
+            throw AppError.process("API call timed out after \(Int(timeout))s")
+        }
+
+        let (data, status) = try result.get()
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        if let error = json?["error"] as? [String: Any] {
             throw AppError.process("API: \(error["message"] as? String ?? "unknown error")")
+        }
+        guard (200..<300).contains(status), let json else {
+            throw AppError.process("API returned HTTP \(status): \(String(decoding: data.prefix(300), as: UTF8.self))")
         }
         let blocks = json["content"] as? [[String: Any]] ?? []
         answer.text = blocks.compactMap { $0["text"] as? String }.joined().trimmingCharacters(in: .whitespacesAndNewlines)
