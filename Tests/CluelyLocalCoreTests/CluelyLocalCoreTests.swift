@@ -290,7 +290,7 @@ struct PromptTests {
     @Test("screen, then transcript, then the question")
     func order() throws {
         let line = TranscriptLine(date: Date(timeIntervalSince1970: 0), speaker: .them, text: "What's your price?")
-        let prompt = AskPrompt.build(question: "How do I answer?", transcript: [line], screen: .file("/tmp/s.png"), timeZone: utc)
+        let prompt = AskPrompt.build(question: "How do I answer?", transcript: [line], screen: .attached, timeZone: utc)
         let screen = try #require(prompt.range(of: "<screen_use>"))
         let audio = try #require(prompt.range(of: "<audio_transcript>"))
         let question = try #require(prompt.range(of: "How do I answer?"))

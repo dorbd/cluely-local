@@ -43,27 +43,50 @@ enum Asker {
         let recent = Transcript.recent(Transcript.parse(markdown), now: Date(), window: AskPrompt.transcriptWindow)
 
         let llmStarted = Date()
+        let prompt = AskPrompt.build(question: question, transcript: recent, screen: hasShot ? .attached : .none, mode: mode)
+        let content = messageContent(prompt, image: hasShot ? shot : nil)
         if let key = apiKey {
-            let prompt = AskPrompt.build(question: question, transcript: recent, screen: hasShot ? .attached : .none, mode: mode)
-            try askAPI(prompt, image: hasShot ? shot : nil, key: key, into: &answer)
+            try askAPI(content, key: key, into: &answer)
         } else {
-            let prompt = AskPrompt.build(question: question, transcript: recent, screen: hasShot ? .file(shot.path) : .none,
-                                         mode: mode)
-            try askCLI(prompt, cwd: dir, into: &answer)
+            try askCLI(content, cwd: dir, into: &answer)
         }
         answer.llmMs = milliseconds(since: llmStarted)
         return answer
     }
 
-    /// `claude -p` with only the Read tool, allowed on the screenshot alone, so words spoken on the call
-    /// can't talk it into opening other files. MCP servers are skipped for speed, and the session isn't
-    /// saved to Claude Code's history, so the transcript only lives in transcript.md.
-    private static func askCLI(_ prompt: String, cwd: URL, into answer: inout Answer) throws {
+    /// The screenshot (if any) and the prompt, as Messages API content blocks. Both paths send the image
+    /// inline, so the model never needs a tool to see it.
+    private static func messageContent(_ prompt: String, image: URL?) -> [[String: Any]] {
+        var content: [[String: Any]] = []
+        if let image, let data = try? Data(contentsOf: image) {
+            content.append(["type": "image", "source": ["type": "base64", "media_type": "image/png",
+                                                        "data": data.base64EncodedString()]])
+        }
+        content.append(["type": "text", "text": prompt])
+        return content
+    }
+
+    /// `claude -p` with no tools. The transcript and the screen come from other people, and a Read tool
+    /// scoped with --allowedTools is still widened by allow rules or a permissive defaultMode in the
+    /// user's own settings, so the image goes inline as stream-json instead. MCP servers are skipped, and
+    /// the session isn't saved to Claude Code's history, so the transcript only lives in transcript.md.
+    private static func askCLI(_ content: [[String: Any]], cwd: URL, into answer: inout Answer) throws {
+        let message: [String: Any] = ["type": "user", "message": ["role": "user", "content": content]]
+        let input = String(decoding: try JSONSerialization.data(withJSONObject: message), as: UTF8.self) + "\n"
+        // stream-json input requires stream-json output (and --verbose): one event per line, the answer
+        // and its cost in the last one, of type "result".
         let output = try run(["claude", "-p", "--model", "haiku", "--strict-mcp-config", "--no-session-persistence",
-                              "--tools", "Read", "--allowedTools", "Read(./screen.png)", "--output-format", "json"],
-                             stdin: prompt, cwd: cwd, timeout: timeout)
-        guard let json = try JSONSerialization.jsonObject(with: Data(output.utf8)) as? [String: Any] else {
-            throw AppError.process("claude returned no JSON")
+                              "--tools", "", "--input-format", "stream-json", "--output-format", "stream-json",
+                              "--verbose"],
+                             stdin: input, cwd: cwd, timeout: timeout)
+        let events = output.split(whereSeparator: \.isNewline).compactMap {
+            try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any]
+        }
+        guard let json = events.last(where: { $0["type"] as? String == "result" }) else {
+            throw AppError.process("claude returned no result")
+        }
+        if json["is_error"] as? Bool == true {
+            throw AppError.process("claude: \(json["result"] as? String ?? "unknown error")")
         }
         answer.text = (json["result"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         answer.costUSD = json["total_cost_usd"] as? Double
@@ -75,13 +98,7 @@ enum Asker {
     }
 
     /// Messages API, image inline. Cost isn't computed here; tokens are logged.
-    private static func askAPI(_ prompt: String, image: URL?, key: String, into answer: inout Answer) throws {
-        var content: [[String: Any]] = []
-        if let image, let data = try? Data(contentsOf: image) {
-            content.append(["type": "image", "source": ["type": "base64", "media_type": "image/png",
-                                                        "data": data.base64EncodedString()]])
-        }
-        content.append(["type": "text", "text": prompt])
+    private static func askAPI(_ content: [[String: Any]], key: String, into answer: inout Answer) throws {
         var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!, timeoutInterval: timeout)
         request.httpMethod = "POST"
         request.setValue(key, forHTTPHeaderField: "x-api-key")
