@@ -38,8 +38,7 @@ public enum AskPrompt {
     public static let transcriptWindow: TimeInterval = 300
 
     public enum Screen: Equatable, Sendable {
-        case file(String)   // claude CLI: Claude opens the PNG with its Read tool
-        case attached       // API: the image is sent alongside the text
+        case attached       // the image is sent alongside the text
         case none
     }
 
@@ -47,7 +46,6 @@ public enum AskPrompt {
                              timeZone: TimeZone = .current) -> String {
         let screenText: String
         switch screen {
-        case .file(let path): screenText = "A screenshot of my screen, taken just now, is at \(path). Read it first."
         case .attached: screenText = "The attached image is a screenshot of my screen, taken just now."
         case .none: screenText = "No screenshot is available."
         }

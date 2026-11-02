@@ -18,6 +18,7 @@ public struct Options: Equatable, Sendable {
     public var seconds: Double?
     public var file: String?
     public var window = true
+    public var screen = true
     public var mode = Mode.general
     public var showHelp = false
 
@@ -37,6 +38,7 @@ public struct Options: Equatable, Sendable {
 
     Both:
       --mode <name>     general, sales, interview or coding (default: general)
+      --no-screen       Ask with the transcript only: no screenshot is taken or sent
     Listen options:
       --lang <code>     Spoken language, e.g. en, es, auto (default: en)
       --no-mic          Only transcribe Them
@@ -100,6 +102,7 @@ public struct Options: Equatable, Sendable {
             case "--seconds": options.seconds = try number(arg, Double.self)
             case "--file": options.file = try value(arg)
             case "--no-window": options.window = false
+            case "--no-screen": options.screen = false
             case "--mode":
                 let raw = try value(arg)
                 guard let mode = Mode(rawValue: raw) else { throw ParseError.badValue(arg, raw) }

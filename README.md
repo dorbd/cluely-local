@@ -64,7 +64,7 @@ I took Cluely 2.1.20 apart before building this. Here's how it works, and what t
 2. Each stream has its own voice activity detector with Cluely's settings. Silero needs an ONNX runtime, so this uses a small energy detector with the same thresholds and timings: loudness above a tracked noise floor, mapped to a 0 to 1 score.
 3. Each finished clip becomes a WAV, `whisper-cli` transcribes it, and a line goes into `transcript.md`. Clips are transcribed one at a time, in a queue.
 4. On ⌘⏎, the clips in progress are cut and transcribed. Then `screencapture` grabs the screen, shrunk to 1,600 px, and the prompt goes to Claude Haiku laid out the way Cluely lays it out: `<screen_use>`, then `<audio_transcript>`, then the question.
-5. Claude is called through the [Claude Code](https://claude.com/claude-code) CLI on your existing plan. Its only tool is Read, limited to the screenshot. If `ANTHROPIC_API_KEY` is set, it calls the API directly with the image attached.
+5. Claude is called through the [Claude Code](https://claude.com/claude-code) CLI on your existing plan, with every tool turned off and the screenshot attached to the message, so nothing said on the call or shown on screen can get it to open a file. If `ANTHROPIC_API_KEY` is set, it calls the API directly, the same way.
 
 ## Measured on an M4 Pro
 
@@ -104,7 +104,7 @@ How these were measured:
 
 Transcription is local: audio never leaves your Mac. Clips are written to temporary WAVs, transcribed and deleted. The transcript stays in `transcript.md`, readable only by you. Delete it whenever you like.
 
-When you ask, **your whole screen** and the last five minutes of transcript are sent to Anthropic. Nothing is sent until you ask. With the CLI, the session isn't saved to Claude Code's history.
+When you ask, **your whole screen** and the last five minutes of transcript are sent to Anthropic. Nothing is sent until you ask. To keep your screen out of it, start with `--no-screen` (it works with `ask` too), and only the transcript is sent. With the CLI, the session isn't saved to Claude Code's history.
 
 It records other people. Tell them, and check the law where you are: some places require everyone on a call to agree to being recorded.
 

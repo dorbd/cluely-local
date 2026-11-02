@@ -49,7 +49,7 @@ func ask(_ question: String, before: @escaping () -> Void = {}, then finished: @
             Thread.sleep(forTimeInterval: 0.1)          // let the window server catch up
         }
         do {
-            let answer = try Asker.ask(question, mode: options.mode, transcriptURL: transcriptURL) {
+            let answer = try Asker.ask(question, mode: options.mode, screen: options.screen, transcriptURL: transcriptURL) {
                 DispatchQueue.main.async { panel?.show("Thinking…") }
             }
             let total = milliseconds(since: started)
