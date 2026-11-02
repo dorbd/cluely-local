@@ -104,7 +104,7 @@ How these were measured:
 
 Transcription is local: audio never leaves your Mac. Clips are written to temporary WAVs, transcribed and deleted. The transcript stays in `transcript.md`, readable only by you. Delete it whenever you like.
 
-When you ask, **your whole screen** and the last five minutes of transcript are sent to Anthropic. Nothing is sent until you ask. With the CLI, the session isn't saved to Claude Code's history.
+When you ask, **your whole screen** and the last five minutes of transcript are sent to Anthropic. Nothing is sent until you ask. To keep your screen out of it, start with `--no-screen` (it works with `ask` too), and only the transcript is sent. With the CLI, the session isn't saved to Claude Code's history.
 
 It records other people. Tell them, and check the law where you are: some places require everyone on a call to agree to being recorded.
 

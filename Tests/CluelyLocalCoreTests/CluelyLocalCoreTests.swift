@@ -348,7 +348,7 @@ struct OptionsTests {
         let options = try Options.parse([])
         #expect(options.command == .listen)
         #expect(options.policy == .queue)
-        #expect(options.mic && options.echoGate)
+        #expect(options.mic && options.echoGate && options.screen)
     }
 
     @Test("parses ask with and without a question")
@@ -362,6 +362,8 @@ struct OptionsTests {
         let options = try Options.parse(["ask", "--no-window", "--mode", "coding", "what", "is", "the", "runtime?"])
         #expect(options.command == .ask(question: "what is the runtime?"))
         #expect(!options.window && options.mode == .coding)
+        #expect(try !Options.parse(["ask", "--no-screen", "what", "now?"]).screen)
+        #expect(try !Options.parse(["--no-screen"]).screen)
         #expect(try Options.parse(["ask", "--", "-1", "or", "0?"]).command == .ask(question: "-1 or 0?"))
     }
 

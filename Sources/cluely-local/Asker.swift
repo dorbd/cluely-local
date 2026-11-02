@@ -21,7 +21,9 @@ enum Asker {
     }
 
     /// `screenshotTaken` runs once the screen is captured, so a "Thinking…" panel stays out of the shot.
-    static func ask(_ question: String, mode: Mode, transcriptURL: URL, screenshotTaken: () -> Void = {}) throws -> Answer {
+    /// With `screen` false, no screenshot is taken, so only the transcript leaves the Mac.
+    static func ask(_ question: String, mode: Mode, screen: Bool = true, transcriptURL: URL,
+                    screenshotTaken: () -> Void = {}) throws -> Answer {
         var answer = Answer()
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("cluely-local-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -29,11 +31,11 @@ enum Asker {
 
         let shot = dir.appendingPathComponent("screen.png")
         let shotStarted = Date()
-        let hasShot = (try? run(["screencapture", "-x", shot.path], timeout: 10)) != nil
+        let hasShot = screen && (try? run(["screencapture", "-x", shot.path], timeout: 10)) != nil
             && FileManager.default.fileExists(atPath: shot.path)
         if hasShot {
             _ = try? run(["sips", "-Z", String(screenshotMaxPixels), shot.path], timeout: 10)
-        } else {
+        } else if screen {
             log("no screenshot: allow Screen Recording for your terminal app in System Settings")
         }
         answer.screenshotMs = milliseconds(since: shotStarted)
